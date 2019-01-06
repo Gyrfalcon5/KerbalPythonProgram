@@ -69,6 +69,8 @@ with krpc.connect(name='Launch to orbit',
         time.sleep(0.1)
 
     Small_Functions.apo_circ(conn)
+
+    Small_Functions.do_node(conn)
     
     
 
