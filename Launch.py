@@ -1,11 +1,7 @@
 import krpc, time, math, Small_Functions
 
 
-target_alt = 80000.0
-
-with krpc.connect(name='Launch to orbit',
-                   address='Endeavor-Ubuntu.local',
-                   rpc_port=50000, stream_port=50001) as conn:
+def kerbin_launch(conn, target_alt):
 
     vessel = conn.space_center.active_vessel
 
@@ -68,9 +64,6 @@ with krpc.connect(name='Launch to orbit',
     while altitude() < 70000:
         time.sleep(0.1)
 
+    # Plan and execute circularization
     Small_Functions.apo_circ(conn)
-
     Small_Functions.do_node(conn)
-    
-    
-
