@@ -421,3 +421,44 @@ def landing_burn_prep(conn, safe_alt):
     delta_v = v_2 - v_1
     node = vessel.control.add_node(burn_time, prograde=delta_v)
 
+def constant_altitude_burn(conn):
+    
+    vessel = conn.space_center.active_vessel
+
+    conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_periapsis - 30)
+
+    ap = vessel.auto_pilot
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation = vessel.surface_reference_frame)
+    
+    ap.reference_frame = ref_frame
+    flight = vessel.flight(ref_frame)
+    ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
+    ap.engage()
+    ap.wait()
+
+    conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_periapsis)
+    ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
+    vessel.control.throttle = 1.0
+    angle_control = 0
+    while flight.horizontal_speed > 10.0:
+        ap.target_direction = tuple(map(sub, (angle_control,0,0), flight.velocity))
+        angle_control += flight.vertical_speed * -1
+        angle_control = max([angle_control, 0])
+        print(flight.velocity)
+        time.sleep(0.1)
+
+    vessel.control.throttle = 0
+
+def suicide_burn(conn):
+
+    vessel = conn.space_center.active_vessel
+
+    while vessel.situation.name != "landed":
+        print(vessel.orbit.body.surface_gravity)
+        print(vessel.flight().g_force)
+        print(vessel.situation)
+        time.sleep(1)
+
+
