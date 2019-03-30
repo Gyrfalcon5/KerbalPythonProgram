@@ -442,7 +442,7 @@ def constant_altitude_burn(conn):
     ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
     vessel.control.throttle = 1.0
     angle_control = 0
-    while flight.horizontal_speed > 10.0:
+    while flight.horizontal_speed > 5.0:
         ap.target_direction = tuple(map(sub, (angle_control,0,0), flight.velocity))
         angle_control += flight.vertical_speed * -1
         angle_control = max([angle_control, 0])
@@ -451,14 +451,113 @@ def constant_altitude_burn(conn):
 
     vessel.control.throttle = 0
 
+# Toggles landing legs
+def toggle_legs(conn):
+
+    vessel = conn.space_center.active_vessel
+    legs = vessel.parts.legs
+
+    for leg in legs:
+        leg.deployed = not leg.deployed
+
+
+# Calculates time until vessel impacts orbiting body
+def impact_time(conn):
+
+    vessel = conn.space_center.active_vessel
+
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation = vessel.surface_reference_frame)
+    
+    current_flight = vessel.flight(ref_frame)
+    altitude = current_flight.surface_altitude
+    fall_speed = current_flight.vertical_speed
+    gravity = vessel.orbit.body.surface_gravity
+    
+    impact_time = []
+
+    # Set up quadratic equation
+    a = 0.5 * gravity
+    b = abs(fall_speed)
+    c = -altitude
+
+    impact_time.append((-b + math.sqrt(b ** 2.0 - 4 * a * c)) / (2 * a))
+    impact_time.append((-b - math.sqrt(b ** 2.0 - 4 * a * c)) / (2 * a))
+
+    if impact_time[0] > 0:
+        return impact_time[0]
+    else:
+        return impact_time[1]
+
+# Calculates time needed to do a hoverslam-ish landing
+def hoverslam_time(conn):
+
+    vessel = conn.space_center.active_vessel
+
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation = vessel.surface_reference_frame)
+    
+    # Calculate gravitational energy here and at landing
+    r_1 = vessel.orbit.radius
+    r_2 = r_1 - vessel.flight().surface_altitude
+    mu = vessel.orbit.body.gravitational_parameter
+    grav_energy = mu * vessel.mass / r_1
+    grav_energy = abs(grav_energy - mu * vessel.mass / r_2)
+
+    # Calculate the energy from velocity
+    velocity_energy = 0.5 * vessel.mass * (vessel.flight().speed)**2.0
+
+    total_energy = grav_energy + velocity_energy
+
+    # Convert it to velocity and use the rocket equation to figure out how
+    # long to burn
+
+    total_velocity = math.sqrt((2 / vessel.mass) * total_energy)
+
+    force = vessel.available_thrust
+    isp = vessel.specific_impulse * 9.82
+    mass_0 = vessel.mass
+    mass_f = mass_0 / math.exp(total_velocity/isp)
+    flow_rate = force / isp
+    burn_time = (mass_0 - mass_f) / flow_rate
+    return burn_time
+
+
+
+# Does a suicide burn
 def suicide_burn(conn):
 
     vessel = conn.space_center.active_vessel
 
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation = vessel.surface_reference_frame)
+    
+    ap = vessel.auto_pilot
+    flight = vessel.flight(ref_frame)
+    ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
+    ap.engage()
+
+    impact = impact_time(conn)
+    hoverslam = hoverslam_time(conn)*0.8 # Fudge it a bit for a better landing
+
+    toggle_legs(conn)
+
+    while impact_time(conn) > hoverslam:
+        ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
+
+    vessel.control.throttle = 1
+
     while vessel.situation.name != "landed":
-        print(vessel.orbit.body.surface_gravity)
-        print(vessel.flight().g_force)
-        print(vessel.situation)
-        time.sleep(1)
+        print(vessel.situation.name)
+        mean_accel = flight.speed / impact_time(conn)
+        vessel.control.throttle = mean_accel / (vessel.available_thrust / vessel.mass)
+        ap.target_direction = tuple(map(sub, (0,0,0), flight.velocity))
+        time.sleep(0.1)
 
+    vessel.control.throttle = 0
 
+    ap.disengage()
+    ap.sas = True
