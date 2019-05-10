@@ -4,24 +4,26 @@ import krpc, time, math, Small_Functions, Launch, Hohmann
 
 with krpc.connect(name='Mun Mission', address='Endeavor-Ubuntu.local',
                   rpc_port=50000, stream_port=50001) as conn:
-
+    '''
     parking_orbit_altitude = 80000
 
-    #Launch.kerbin_launch(conn, parking_orbit_altitude)
+    Launch.kerbin_launch(conn, parking_orbit_altitude)
 
-    #Hohmann.mun_transfer(conn)
+    Hohmann.mun_transfer(conn)
 
+    Small_Functions.landing_burn_prep(conn, 6000)
 
-    #conn.space_center.active_vessel.control.activate_next_stage()
+    Small_Functions.do_node(conn)
 
-    #Small_Functions.landing_burn_prep(conn, 4200)
+    Small_Functions.constant_altitude_burn(conn)
 
-    #Small_Functions.do_node(conn)
-
-    #Small_Functions.constant_altitude_burn(conn)
-
-    #Small_Functions.suicide_burn(conn)
-
-    #conn.space_center.quicksave()
-
+    Small_Functions.suicide_burn(conn)
+    
+    print("The Eagle has landed!")
+    '''
     conn.space_center.quickload()
+    time.sleep(10) # Bask in the landing
+    
+    Launch.airless_launch(conn, 10000)
+
+    Hohmann.mun_return(conn)

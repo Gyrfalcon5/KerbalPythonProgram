@@ -67,3 +67,55 @@ def kerbin_launch(conn, target_alt):
     # Plan and execute circularization
     Small_Functions.apo_circ(conn)
     Small_Functions.do_node(conn)
+
+def airless_launch(conn, target_alt):
+    
+    vessel = conn.space_center.active_vessel
+    apoapsis_alt = conn.add_stream(getattr, vessel.orbit, 'apoapsis_altitude')
+    available_thrust = conn.add_stream(getattr, vessel, 'available_thrust')
+
+    # Pre-launch control setup
+    vessel.control.sas = False
+    vessel.control.rcs = False
+    vessel.auto_pilot.target_pitch_and_heading(90, 90)
+    vessel.auto_pilot.engage()
+    
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation=vessel.surface_reference_frame)
+
+    flight = vessel.flight(ref_frame)
+    surface_alt = conn.add_stream(getattr, flight, 'surface_altitude')
+
+    # Countdown because those are fun
+    print('3...')
+    time.sleep(1)
+    print('2...')
+    time.sleep(1)
+    print('1...')
+    time.sleep(1)
+    print('Launch!')
+    vessel.control.throttle = 1
+
+    Small_Functions.toggle_legs(conn)
+
+    time.sleep(2)
+
+    if available_thrust() < 0.1:
+        vessel.control.activate_next_stage()
+
+    old_alt = 0
+    while apoapsis_alt() < target_alt:
+        alt_rate = (surface_alt() - old_alt) / 0.1
+        old_alt = surface_alt()
+        pitch_set = -0.5*alt_rate
+        pitch_set = min(max(pitch_set, 2), 90)
+        print(pitch_set)
+        vessel.auto_pilot.target_pitch_and_heading(pitch_set, 90)
+        time.sleep(0.1)
+
+    vessel.control.throttle = 0
+        
+    # Plan and execute circularization
+    Small_Functions.apo_circ(conn)
+    Small_Functions.do_node(conn)

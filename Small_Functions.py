@@ -275,15 +275,14 @@ def hohmann_corrector(conn, target_parameter, target_value, node=None,
         target_difference = abs(target_parameter() - target_value)
 
         def utility_check():
-            delta_dv = node.delta_v 
-            
             try:
                 delta_target = target_difference - abs(target_parameter() - target_value)
             
             except AttributeError:
                 print("Step is too large and makes the target parameter not exist!")
                 return None
-            return delta_target / delta_dv
+
+            return delta_target 
 
         # Check if we are doing prograde corrections
         if directions[0]:
@@ -453,7 +452,7 @@ def constant_altitude_burn(conn):
 
 # Toggles landing legs
 def toggle_legs(conn):
-
+    
     vessel = conn.space_center.active_vessel
     legs = vessel.parts.legs
 
@@ -541,7 +540,7 @@ def suicide_burn(conn):
     ap.engage()
 
     impact = impact_time(conn)
-    hoverslam = hoverslam_time(conn)*0.8 # Fudge it a bit for a better landing
+    hoverslam = hoverslam_time(conn)*0.65 # Fudge it a bit for a better landing
 
     toggle_legs(conn)
 
@@ -561,3 +560,109 @@ def suicide_burn(conn):
 
     ap.disengage()
     ap.sas = True
+
+# This plans hyperbolic returns, should be broken into functions
+def return_burn(conn, return_alt):
+
+    vessel = conn.space_center.active_vessel
+    orbited_vel = vessel.orbit.body.orbit.speed
+    orbited_alt = vessel.orbit.body.orbit.radius - vessel.orbit.body.sphere_of_influence 
+
+    return_alt = vessel.orbit.body.orbit.body.equatorial_radius + return_alt
+    return_a = (orbited_alt + return_alt) / 2.0
+    target_vel = vis_viva(orbited_alt, return_a, vessel.orbit.body.orbit.body.gravitational_parameter)
+
+    excess_velocity = target_vel - orbited_vel
+
+    if excess_velocity > 0:
+        # Implement this at some point maybe?
+        pass
+    else:
+        excess_velocity = abs(excess_velocity)
+
+        target_energy = excess_velocity ** 2.0 / 2.0
+        target_sma = -vessel.orbit.body.gravitational_parameter / (2*target_energy)
+        
+        target_eccentricity = 1 - vessel.orbit.semi_major_axis / target_sma
+        turning_angle = math.acos(-1 / target_eccentricity)
+        
+        ref_frame = vessel.orbit.body.orbital_reference_frame
+
+        # Assuming that we are orbiting ccw
+        burn_direction = (math.sin(turning_angle), -math.cos(turning_angle), 0)
+        start_time = conn.space_center.ut
+        vessel_pos = vessel.orbit.position_at(start_time, ref_frame)
+        angle_now = angle_between_vectors(burn_direction, vessel_pos)
+        vessel_pos = vessel.orbit.position_at(start_time + 100, ref_frame)
+        angle_later = angle_between_vectors(burn_direction, vessel_pos)
+
+
+        if angle_now > angle_later:
+            wait_diff = angle_now
+        else:
+            wait_diff = 2*math.pi - angle_now
+        
+        
+        wait_time = vessel.orbit.period * (wait_diff / (2*math.pi))
+        
+        radius = vessel.orbit.radius_at(start_time + wait_time)
+        v_1 = vis_viva(radius, vessel.orbit.semi_major_axis, vessel.orbit.body.gravitational_parameter)
+        v_2 = vis_viva(radius, target_sma, vessel.orbit.body.gravitational_parameter)
+
+
+        vessel.control.add_node(wait_time + start_time, prograde=(v_2 - v_1))
+        correction_parameter = lambda : vessel.control.nodes[0].orbit.next_orbit.periapsis
+        hohmann_corrector(conn, correction_parameter, return_alt,
+                          directions=(1,0,0), step=1.5, tolerance=10,
+                          guesses=[v_2-v_1,0,0], time_delay=wait_time)
+
+    '''
+    do_node(conn)
+    
+    conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_soi_change + 10)
+
+    vessel.control.add_node(conn.space_center.ut)
+    correction_parameter = lambda : vessel.control.nodes[0].orbit.periapsis
+    hohmann_corrector(conn, correction_parameter, return_alt, directions=(0,1,0), step=0.5, tolerance=10, guesses=[0,0,0])
+    do_node(conn)
+
+
+    vessel.auto_pilot.disengage()
+    vessel.auto_pilot.sas = True
+    vessel.control.sas_mode = conn.space_center.SASMode(4)
+    time.sleep(10)
+    vessel.control.activate_next_stage()
+    vessel.control.sas_mode = conn.space_center.SASMode(3)
+    '''
+
+def landing_handler(conn):
+    
+    vessel = conn.space_center.active_vessel
+
+    conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_periapsis - 120)
+
+    ref_frame = conn.space_center.ReferenceFrame.create_hybrid(
+        position=vessel.orbit.body.reference_frame,
+        rotation = vessel.surface_reference_frame)
+
+    flight = vessel.flight(ref_frame)
+    while flight.mean_altitude > 70000:
+        time.sleep(1)
+
+    while flight.speed > 300:
+        time.sleep(1)
+        if flight.mean_altitude > 70000:
+            conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_periapsis - 120)
+
+    vessel.control.activate_next_stage()
+
+    while not vessel.recoverable:
+        time.sleep(1)
+    
+    print("Splashdown!")
+    time.sleep(2)
+    vessel.recover()
+
+
+
+
