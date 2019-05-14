@@ -4,7 +4,7 @@ import krpc, time, math, Small_Functions, Launch, Hohmann
 
 with krpc.connect(name='Mun Mission', address='Endeavor-Ubuntu.local',
                   rpc_port=50000, stream_port=50001) as conn:
-    '''
+    
     parking_orbit_altitude = 80000
 
     Launch.kerbin_launch(conn, parking_orbit_altitude)
@@ -20,7 +20,7 @@ with krpc.connect(name='Mun Mission', address='Endeavor-Ubuntu.local',
     Small_Functions.suicide_burn(conn)
     
     print("The Eagle has landed!")
-    '''
+    
     conn.space_center.quickload()
     time.sleep(10) # Bask in the landing
     

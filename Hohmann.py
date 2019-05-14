@@ -32,7 +32,7 @@ def mun_transfer(conn):
     Small_Functions.peri_circ(conn)
     Small_Functions.do_node(conn)
 
-
+# This function does the Mun return
 def mun_return(conn):
 
     vessel = conn.space_center.active_vessel

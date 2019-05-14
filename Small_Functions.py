@@ -252,6 +252,7 @@ def hohmann_departure_planner(conn, start, target):
 
     conn.space_center.active_vessel.control.add_node(burn_time, prograde=delta_v[0], radial=delta_v[1])
 
+# Corrects manuever nodes to achieve a target parameter
 def hohmann_corrector(conn, target_parameter, target_value, node=None,
                       directions=(False, False, False), guesses=[0, 0, 0],
                       time_delay=100, tolerance=0.1, step=1,
@@ -358,6 +359,7 @@ def hohmann_corrector(conn, target_parameter, target_value, node=None,
             num_iters = 0
             print(step)
 
+# Finds the angle between given vectors
 def angle_between_vectors(vector_1, vector_2):
 
     if not len(vector_1) == len(vector_2):
@@ -377,6 +379,8 @@ def angle_between_vectors(vector_1, vector_2):
 
     return math.acos(dot_sum / (sum_1 * sum_2))
 
+# Finds out when you will be opposite the sun so you can make sure to land
+# on the side with the sun
 def daylight_opposite_time(conn):
 
     start_time = conn.space_center.ut
@@ -404,6 +408,7 @@ def daylight_opposite_time(conn):
 
     return start_time + wait_time
 
+# Plans the landing burn for the function below
 def landing_burn_prep(conn, safe_alt):
     
     burn_time = daylight_opposite_time(conn)
@@ -420,6 +425,7 @@ def landing_burn_prep(conn, safe_alt):
     delta_v = v_2 - v_1
     node = vessel.control.add_node(burn_time, prograde=delta_v)
 
+# Performs a constant altitude burn until horizontal velocity is low
 def constant_altitude_burn(conn):
     
     vessel = conn.space_center.active_vessel
@@ -561,7 +567,7 @@ def suicide_burn(conn):
     ap.disengage()
     ap.sas = True
 
-# This plans hyperbolic returns, should be broken into functions
+# This plans hyperbolic returns, so you get the right return altitude, ish
 def return_burn(conn, return_alt):
 
     vessel = conn.space_center.active_vessel
@@ -635,6 +641,7 @@ def return_burn(conn, return_alt):
     vessel.control.sas_mode = conn.space_center.SASMode(3)
     '''
 
+# Handles the process of landing and splashdown
 def landing_handler(conn):
     
     vessel = conn.space_center.active_vessel
