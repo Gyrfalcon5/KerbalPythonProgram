@@ -465,7 +465,6 @@ def toggle_legs(conn):
     for leg in legs:
         leg.deployed = not leg.deployed
 
-
 # Calculates time until vessel impacts orbiting body
 def impact_time(conn):
 
@@ -528,8 +527,6 @@ def hoverslam_time(conn):
     flow_rate = force / isp
     burn_time = (mass_0 - mass_f) / flow_rate
     return burn_time
-
-
 
 # Does a suicide burn
 def suicide_burn(conn):
@@ -622,24 +619,6 @@ def return_burn(conn, return_alt):
                           directions=(1,0,0), step=1.5, tolerance=10,
                           guesses=[v_2-v_1,0,0], time_delay=wait_time)
 
-    '''
-    do_node(conn)
-    
-    conn.space_center.warp_to(conn.space_center.ut + vessel.orbit.time_to_soi_change + 10)
-
-    vessel.control.add_node(conn.space_center.ut)
-    correction_parameter = lambda : vessel.control.nodes[0].orbit.periapsis
-    hohmann_corrector(conn, correction_parameter, return_alt, directions=(0,1,0), step=0.5, tolerance=10, guesses=[0,0,0])
-    do_node(conn)
-
-
-    vessel.auto_pilot.disengage()
-    vessel.auto_pilot.sas = True
-    vessel.control.sas_mode = conn.space_center.SASMode(4)
-    time.sleep(10)
-    vessel.control.activate_next_stage()
-    vessel.control.sas_mode = conn.space_center.SASMode(3)
-    '''
 
 # Handles the process of landing and splashdown
 def landing_handler(conn):
@@ -669,7 +648,3 @@ def landing_handler(conn):
     print("Splashdown!")
     time.sleep(2)
     vessel.recover()
-
-
-
-
