@@ -21,7 +21,6 @@ with krpc.connect(name='Mun Mission', address='Endeavor-Ubuntu.local',
     
     print("The Eagle has landed!")
     
-    conn.space_center.quickload()
     time.sleep(10) # Bask in the landing
     
     Launch.airless_launch(conn, 10000)
